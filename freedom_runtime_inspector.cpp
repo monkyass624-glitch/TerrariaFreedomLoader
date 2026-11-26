@@ -33,6 +33,9 @@ struct Il2CppClass;
 struct Il2CppMethod;
 struct Il2CppType;
 
+struct Api;
+std::string type_name(Api& a, const Il2CppType* type);
+
 struct Api {
     Il2CppDomain* (*domain_get)() = nullptr;
     Il2CppThread* (*thread_attach)(Il2CppDomain*) = nullptr;
