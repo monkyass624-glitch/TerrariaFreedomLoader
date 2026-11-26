@@ -6,9 +6,9 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(freedom_runtime_inspector SHARED
-    src/freedom_runtime_inspector.cpp)
+    freedom_runtime_inspector.cpp)
 
-target_include_directories(freedom_runtime_inspector PUBLIC include)
+target_include_directories(freedom_runtime_inspector PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_options(freedom_runtime_inspector PRIVATE -Wall -Wextra -Wpedantic -fvisibility=hidden)
 target_link_libraries(freedom_runtime_inspector PRIVATE ${CMAKE_DL_LIBS})
 
@@ -17,8 +17,7 @@ if(ANDROID)
     target_link_libraries(freedom_runtime_inspector PRIVATE ${log-lib})
 endif()
 
-# Optional guarded proof-of-concept hook. Keep OFF until the inspector has been
-# loaded into the exact supported Terraria build and all checks have passed.
+# Keep experimental hooks disabled until exact-build runtime validation is complete.
 if(FREEDOM_ENABLE_EXPERIMENTAL_HOOK)
     include(FetchContent)
     set(DOBBY_DEBUG OFF CACHE BOOL "" FORCE)
