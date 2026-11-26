@@ -1,0 +1,31 @@
+{
+  "supported_build": "Terraria Mobile 1.4.5.6.4 (APK filename supplied by user)",
+  "abi": "arm64-v8a",
+  "libil2cpp_sha256": "dc67ce5f48dc4738977e52fa524115beb95a641410eec39458adaf8f03b10c25",
+  "global_metadata_sha256": "7680b730578ba1d17bc8fd4097fe194c78d396181afbb737a236537f8eaea0a1",
+  "candidate": {
+    "class": "Terraria.Player",
+    "method": "ResetEffects",
+    "metadata_token": "0x06002942",
+    "metadata_method_index": 10561,
+    "parameter_count": 0,
+    "return_type": "System.Void",
+    "metadata_static_bit": false,
+    "native_rva": "0x1606BD4",
+    "expected_first_16_bytes": "FF 43 01 D1 E9 23 01 6D F6 13 00 F9 F5 53 03 A9",
+    "detour_signature_assumption": "void (*)(void* player_instance, const void* method_info)",
+    "runtime_checks_required": [
+      "IL2CPP domain initialized",
+      "Assembly-CSharp found",
+      "Terraria.Player resolved",
+      "method parameter count is 0",
+      "runtime method is instance",
+      "runtime return type is System.Void",
+      "MethodInfo first pointer equals base + 0x1606BD4",
+      "first 16 ARM64 bytes match exactly"
+    ],
+    "behavior": "The opt-in detour only calls the original method and logs its first invocation; it does not change gameplay state.",
+    "enabled_by_default": false
+  },
+  "note": "This manifest is specific to the exact supplied binary. Do not reuse offsets on another Terraria build."
+}

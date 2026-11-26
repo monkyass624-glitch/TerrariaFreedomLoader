@@ -1,0 +1,3 @@
+Terraria Mobile 1.4.5.6.4 ARM64 source hashes
+libil2cpp.so  SHA256 dc67ce5f48dc4738977e52fa524115beb95a641410eec39458adaf8f03b10c25
+global-metadata.dat SHA256 7680b730578ba1d17bc8fd4097fe194c78d396181afbb737a236537f8eaea0a1

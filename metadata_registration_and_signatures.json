@@ -1,0 +1,44 @@
+{
+  "metadata_version": 31,
+  "metadata_registration_candidate_rva": "0x2f32510",
+  "metadata_registration_pairs": [
+    {
+      "count": 4999,
+      "pointer_rva": "0x2ed5488"
+    },
+    {
+      "count": 3199,
+      "pointer_rva": "0x2eeb8b0"
+    },
+    {
+      "count": 33130,
+      "pointer_rva": "0x282282c"
+    },
+    {
+      "count": 22999,
+      "pointer_rva": "0x2f4b480"
+    },
+    {
+      "count": 40344,
+      "pointer_rva": "0x27ac50c"
+    },
+    {
+      "count": 9294,
+      "pointer_rva": "0x2fe4440"
+    },
+    {
+      "count": 9294,
+      "pointer_rva": "0x2ff66b0"
+    }
+  ],
+  "types_count": 22999,
+  "types_pointer_array_rva": "0x2f4b480",
+  "field_offsets_count": 9294,
+  "field_offsets_pointer_array_rva": "0x2fe4440",
+  "type_definition_sizes_count": 9294,
+  "type_definition_sizes_pointer_array_rva": "0x2ff66b0",
+  "resolved_target_method_overloads": 39,
+  "resolved_target_fields_with_offsets": 3038,
+  "all_type_pointers_checked": 22999,
+  "caveat": "Static registration mapping validated by observed count/pointer structure and type records; class field offsets are raw IL2CPP offsets and require runtime validation for static/value-type distinctions."
+}
