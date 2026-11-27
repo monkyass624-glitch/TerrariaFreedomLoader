@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
         char report[256 * 1024]{};
         const int count = FreedomLoaderGetInstalledModsReport(argv[2], argv[3], argv[4], report, sizeof(report));
         if (count < 0) {
-            std::printf("LIST_FAILED: %d\\n", count);
+            std::printf("LIST_FAILED: %d\n", count);
             return 5;
         }
         std::puts(report);
@@ -53,16 +53,16 @@ int main(int argc, char** argv) {
             std::puts(selected ? "SELECTED" : "DESELECTED");
             return 0;
         }
-        std::printf("SELECTION_FAILED: %s\\n", error);
+        std::printf("SELECTION_FAILED: %s\n", error);
         return 6;
     }
     std::fprintf(stderr,
-        "Usage:\\n"
-        "  %s validate <package.fredl> <game-version> <platform>\\n"
-        "  %s install <package.fredl> <mods-dir> <game-version> <platform>\\n"
-        "  %s scan <mods-dir> <game-version> <platform>\\n"
-        "  %s list <mods-dir> <game-version> <platform>\\n"
-        "  %s select <mods-dir> <mod-id> <on|off> <game-version> <platform>\\n",
+        "Usage:\n"
+        "  %s validate <package.fredl> <game-version> <platform>\n"
+        "  %s install <package.fredl> <mods-dir> <game-version> <platform>\n"
+        "  %s scan <mods-dir> <game-version> <platform>\n"
+        "  %s list <mods-dir> <game-version> <platform>\n"
+        "  %s select <mods-dir> <mod-id> <on|off> <game-version> <platform>\n",
         argv[0], argv[0], argv[0], argv[0], argv[0]);
     return 64;
 }
