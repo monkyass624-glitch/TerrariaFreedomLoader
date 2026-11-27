@@ -8,6 +8,7 @@
 - It parses the ELF64 dynamic dependency table of `libunity.so`. If `libpairipcore.so` is in `DT_NEEDED`, it refuses to start the host. It does not patch or bypass PairIP.
 - A separate Android process, `:game`, loads the game libraries and the game's own `UnityPlayer` class using a package context, then creates the Unity view.
 - After Unity libraries are loaded, it loads `libfreedom_runtime_inspector.so`. That library is read-only and waits for IL2CPP initialization.
+- A small in-game status strip polls the read-only inspector and distinguishes an initialized IL2CPP domain with `Assembly-CSharp` from timeout or missing exports.
 
 ## Why the compatibility gate exists
 
@@ -21,7 +22,8 @@ Some Google Play Terraria builds include PairIP. Public loader engineering notes
 4. Confirm it reports version `1.4.5.6.4`, ARM64, and no PairIP dependency.
 5. Tap **تشغيل Terraria داخل Freedom Loader**.
 6. If Unity opens, the first proof is only that the game is hosted in the app process. Check Android logcat for tag `FreedomLoader` and the native inspector logs.
-7. Report the exact visible error or whether the Terraria title screen appears.
+7. Wait for the top-left strip to report `IL2CPP + Assembly-CSharp جاهز`, or note its exact failure message.
+8. Report the exact visible error or whether the Terraria title screen appears.
 
 ## Important boundary
 
