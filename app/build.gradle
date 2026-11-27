@@ -26,8 +26,8 @@ android {
 
     buildTypes {
         debug {
-            applicationIdSuffix ".debug"
-            versionNameSuffix "-debug"
+            applicationIdSuffix ".linked"
+            versionNameSuffix "-linked"
         }
         release {
             minifyEnabled false
