@@ -138,9 +138,10 @@ public final class GameRuntime {
     // PairIP may initialize from Java bootstrap code rather than DT_NEEDED in libunity.
     // Detect its known package/library markers and reject the build; never patch or bypass it.
     private static String findPairIpBootstrapEvidence(ApplicationInfo app) throws Exception {
+        List<String> evidence = new ArrayList<>();
         File nativeDirectory = new File(app.nativeLibraryDir == null ? "" : app.nativeLibraryDir);
         if (new File(nativeDirectory, "libpairipcore.so").isFile()) {
-            return "libpairipcore.so في مجلد مكتبات اللعبة";
+            evidence.add("libpairipcore.so موجودة في مجلد المكتبات المثبتة");
         }
 
         List<String> apkPaths = new ArrayList<>();
@@ -153,7 +154,7 @@ public final class GameRuntime {
                 "com/pairip/VMRunner",
                 "com.pairip.VMRunner",
                 "com/pairip/SignatureCheck",
-                "com.pairip.StartupLauncher",
+                "com/pairip/StartupLauncher",
                 "libpairipcore.so"
         };
         for (String apk : apkPaths) {
@@ -162,20 +163,31 @@ public final class GameRuntime {
                 while (entries.hasMoreElements()) {
                     ZipEntry entry = entries.nextElement();
                     String name = entry.getName();
-                    if (name.endsWith("/libpairipcore.so") || name.equals("lib/arm64-v8a/libpairipcore.so")) {
-                        return apk + " يحتوي " + name;
+                    if (name.endsWith("/libpairipcore.so") ||
+                            name.equals("lib/arm64-v8a/libpairipcore.so")) {
+                        evidence.add(apk + " يحتوي " + name);
+                        continue;
                     }
                     if (!name.matches("classes([0-9]+)?\\.dex")) continue;
                     try (InputStream input = zip.getInputStream(entry)) {
                         String marker = streamFindMarker(input, markers);
-                        if (marker != null) return apk + " / " + name + " يحتوي " + marker;
+                        if (marker != null) {
+                            evidence.add(apk + " / " + name + " يحتوي مكوّناً: " + marker);
+                        }
                     }
                 }
             } catch (java.io.IOException ignored) {
-                // A split that is not a readable ZIP will be handled by the library extractor.
+                // Unreadable splits are handled later by the library extractor.
             }
         }
-        return null;
+
+        if (evidence.isEmpty()) return null;
+        StringBuilder report = new StringBuilder();
+        for (String item : evidence) {
+            if (report.length() > 0) report.append("؛ ");
+            report.append(item);
+        }
+        return report.toString();
     }
 
     private static String streamFindMarker(InputStream input, String[] markers) throws Exception {
