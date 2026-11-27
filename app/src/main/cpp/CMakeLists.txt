@@ -10,18 +10,11 @@ if(NOT z-lib)
     message(FATAL_ERROR "Android NDK zlib library was not found")
 endif()
 
+# This APK currently uses the native library only for FREDL package validation
+# and safe extraction. The separate IL2CPP inspector is not loaded by this app.
 add_library(fredl_jni SHARED
     fredl_jni.cpp
     ../../../../freedom_fredl.cpp)
 target_include_directories(fredl_jni PRIVATE ../../../../)
 target_compile_options(fredl_jni PRIVATE -Wall -Wextra -fvisibility=hidden)
 target_link_libraries(fredl_jni PRIVATE ${log-lib} ${z-lib})
-
-# Loaded only inside the isolated :game process, after Terraria's own
-# libmain/libunity/libil2cpp. The inspector is read-only and hooks stay disabled.
-add_library(freedom_runtime_inspector SHARED
-    ../../../../freedom_runtime_inspector.cpp)
-target_include_directories(freedom_runtime_inspector PRIVATE ../../../../)
-target_compile_options(freedom_runtime_inspector PRIVATE
-    -Wall -Wextra -Wpedantic -fvisibility=hidden)
-target_link_libraries(freedom_runtime_inspector PRIVATE ${log-lib} ${CMAKE_DL_LIBS})
