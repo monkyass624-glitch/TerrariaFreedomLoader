@@ -48,3 +48,35 @@ Java_com_freedomloader_terraria_MainActivity_nativeInstall(
     }
     return to_java(env, std::string("INSTALL FAILED: ") + error);
 }
+
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_freedomloader_terraria_MainActivity_nativeGetInstalledModsReport(
+    JNIEnv* env, jobject, jstring mods_directory, jstring game_version, jstring platform) {
+    const std::string directory = from_java(env, mods_directory);
+    const std::string game = from_java(env, game_version);
+    const std::string abi = from_java(env, platform);
+    std::vector<char> report(256 * 1024, '\0');
+    const int count = FreedomLoaderGetInstalledModsReport(
+        directory.c_str(), game.c_str(), abi.c_str(), report.data(), report.size());
+    if (count < 0) {
+        return to_java(env, "{\"mods\":[],\"loadOrder\":[],\"loadOrderReady\":false,\"loadOrderError\":\"native report failed\"}");
+    }
+    return to_java(env, std::string(report.data()));
+}
+
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_freedomloader_terraria_MainActivity_nativeSetModSelected(
+    JNIEnv* env, jobject, jstring mods_directory, jstring mod_id, jboolean selected,
+    jstring game_version, jstring platform) {
+    const std::string directory = from_java(env, mods_directory);
+    const std::string id = from_java(env, mod_id);
+    const std::string game = from_java(env, game_version);
+    const std::string abi = from_java(env, platform);
+    char error[1024]{};
+    if (FreedomLoaderSetModSelected(directory.c_str(), id.c_str(), selected ? 1 : 0,
+                                    game.c_str(), abi.c_str(), error, sizeof(error))) {
+        return to_java(env, "OK");
+    }
+    return to_java(env, std::string("ERROR: ") + error);
+}
