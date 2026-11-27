@@ -2,6 +2,7 @@
 #include "freedom_fredl.h"
 
 #include <string>
+#include <vector>
 
 namespace {
 std::string from_java(JNIEnv* env, jstring value) {
