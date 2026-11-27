@@ -41,6 +41,20 @@ FREDL_EXPORT int FreedomLoaderScanFredlDirectory(
     char* report_json,
     size_t report_capacity);
 
+
+// List installed package metadata and the dependency-safe startup order.
+// Selected means queued for a future compatible runtime; it does not execute mod.dll.
+FREDL_EXPORT int FreedomLoaderGetInstalledModsReport(
+    const char* mods_directory, const char* game_version, const char* platform,
+    char* report_json, size_t report_capacity);
+
+// Select or deselect an installed mod for startup planning.
+// A selection is rejected if dependencies are missing, incompatible or cyclic.
+FREDL_EXPORT int FreedomLoaderSetModSelected(
+    const char* mods_directory, const char* mod_id, int selected,
+    const char* game_version, const char* platform,
+    char* error_buffer, size_t error_capacity);
+
 #ifdef __cplusplus
 }
 #endif
