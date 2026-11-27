@@ -91,16 +91,16 @@ public final class MainActivity extends Activity {
             String versionStatus = isFredlTarget()
                     ? "الإصدار يطابق الهدف " + TARGET_GAME_VERSION + "."
                     : "الإصدار لا يطابق الهدف الحالي " + TARGET_GAME_VERSION + ".";
-            String base = versionStatus + "\nAPK مقبول للاستيراد والتثبيت والتشغيل العادي؛ فحص PairIP لا يمنع هذه العمليات.";
-            String pairIp;
+            String base = versionStatus + "\nAPK مقبول للاستيراد والتثبيت والتشغيل العادي؛ فحص PairIP لا يمنع تشغيل اللعبة الأصلية.";
+            String runtime;
             if (pairIpStatus == ElfDependencyInspector.FOUND) {
-                pairIp = "\nالفحص وجد اعتماداً مباشراً في libunity.so على libpairipcore.so (PairIP). هذه معلومة تشخيصية فقط؛ لن نعدل الحماية أو نتجاوزها.";
+                runtime = "\nPairIP موجود في هذا البناء. لا يوجد في Freedom Loader Runtime موثّق ومتوافق معه لتشغيل المودات داخل عملية اللعبة؛ لذلك لن تُفعّل مودات FREDL لهذا البناء.";
             } else if (pairIpStatus == ElfDependencyInspector.UNKNOWN) {
-                pairIp = "\nتعذر حسم اعتماد PairIP من libunity.so؛ عدم حسم الفحص لا يمنع الاستيراد أو التثبيت العادي.";
+                runtime = "\nتعذر حسم حالة PairIP. سيبقى تشغيل المودات معطلاً حتى يثبت توافق Runtime مع هذا الملف تحديداً.";
             } else {
-                pairIp = "\nلم يظهر اعتماد مباشر على PairIP في libunity.so؛ هذا لا يثبت غياب كل مكونات الحماية.";
+                runtime = "\nلم يظهر اعتماد مباشر على PairIP، لكن هذا وحده لا يثبت توافق اللعبة مع Runtime. تشغيل المودات غير مفعّل في هذا الإصدار.";
             }
-            return base + pairIp + "\nتشغيل المودات داخل Terraria غير متاح حالياً؛ ملفات FREDL تُدار محلياً فقط حتى إضافة Runtime مشروع ومتوافق واختباره.";
+            return base + runtime + "\nيمكنك إدارة حزم FREDL محلياً؛ تثبيتها هنا لا يعني أنها تعمل داخل Terraria.";
         }
     }
 
@@ -135,7 +135,7 @@ public final class MainActivity extends Activity {
         title.setPadding(0, dp(4), 0, dp(4));
         root.addView(title);
         root.addView(text("مدير Terraria وحزم المودات بصيغة .fredl", 15, colorMuted, false));
-        TextView version = text("إصدار اللودر 0.3.1  •  هدف فحص الحزم: " + TARGET_GAME_VERSION + " • ARM64", 12, colorMuted, false);
+        TextView version = text("إصدار اللودر 0.3.2  •  هدف فحص الحزم: " + TARGET_GAME_VERSION + " • ARM64", 12, colorMuted, false);
         version.setPadding(0, dp(8), 0, dp(18));
         root.addView(version);
 
@@ -184,8 +184,8 @@ public final class MainActivity extends Activity {
         installedView = text("", 13, colorMuted, false);
         installedCard.addView(installedView);
         LinearLayout noteCard = card(root, "حدود الإصدار الحالي");
-        noteCard.addView(text("حالة تشغيل المودات: غير متاحة في هذا الإصدار. يستطيع اللودر استيراد Terraria APK وفحص اعتماد PairIP فيه، وطلب تثبيت اللعبة الأصلية وتشغيلها، كما يستطيع فحص حزم FREDL واستخراجها إلى مساحة التطبيق. لا يتم تحميل mod.dll داخل اللعبة، ولا يؤثر تثبيت FREDL على اللعب حتى يضاف Runtime متوافق ويُختبر. لا يتم تعديل APK اللعبة أو تجاوز PairIP أو التوقيع أو الترخيص.", 13, colorMuted, false));
-        TextView footer = text("FREDL package manager • v0.3.1", 11, colorMuted, false);
+        noteCard.addView(text("حالة تشغيل المودات: غير متاحة في هذا الإصدار. يقبل اللودر APK المحمي بـ PairIP ويثبت اللعبة الأصلية ويشغلها دون تعديل. حزم FREDL تُفحص وتُستخرج محلياً فقط؛ لا يتم تنفيذ mod.dll داخل Terraria. لا يتم حقن كود في عملية اللعبة أو تعديل APK أو تجاوز PairIP أو التوقيع أو الترخيص.", 13, colorMuted, false));
+        TextView footer = text("FREDL package manager • v0.3.2", 11, colorMuted, false);
         footer.setGravity(Gravity.CENTER);
         footer.setPadding(0, dp(18), 0, 0);
         root.addView(footer);
