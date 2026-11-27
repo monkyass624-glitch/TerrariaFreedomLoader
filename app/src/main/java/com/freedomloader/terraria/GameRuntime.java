@@ -86,6 +86,12 @@ public final class GameRuntime {
             if (app == null || app.sourceDir == null) {
                 return Result.fail("لم يعثر Android على ملف APK الأساسي للعبة.", versionName, versionCode);
             }
+            if (hasPairIpBootstrap(context, app)) {
+                return Result.fail(
+                        "اكتشف Freedom Loader مكونات PairIP في ملفات Terraria. " +
+                        "هذا البناء غير متوافق مع الاستضافة داخل تطبيق منفصل، ولن نحاول تعطيل الحماية.",
+                        versionName, versionCode);
+            }
 
             File libraryDirectory = extractLibraries(context, app);
             File unity = new File(libraryDirectory, "libunity.so");
@@ -125,6 +131,62 @@ public final class GameRuntime {
             return Result.fail("فشل تجهيز Terraria للاستضافة: " + safeMessage(t),
                     versionName, versionCode);
         }
+    }
+
+    // PairIP may initialize from Java bootstrap code rather than DT_NEEDED in libunity.
+    // Detect its known package/library markers and reject the build; never patch or bypass it.
+    private static boolean hasPairIpBootstrap(Context context, ApplicationInfo app) throws Exception {
+        File nativeDirectory = new File(app.nativeLibraryDir == null ? "" : app.nativeLibraryDir);
+        if (new File(nativeDirectory, "libpairipcore.so").isFile()) return true;
+
+        List<String> apkPaths = new ArrayList<>();
+        apkPaths.add(app.sourceDir);
+        if (app.splitSourceDirs != null) {
+            for (String split : app.splitSourceDirs) if (split != null) apkPaths.add(split);
+        }
+
+        final String[] markers = {
+                "com/pairip/VMRunner",
+                "com.pairip.VMRunner",
+                "com/pairip/SignatureCheck",
+                "com.pairip.StartupLauncher",
+                "libpairipcore.so"
+        };
+        for (String apk : apkPaths) {
+            try (ZipFile zip = new ZipFile(apk)) {
+                java.util.Enumeration<? extends ZipEntry> entries = zip.entries();
+                while (entries.hasMoreElements()) {
+                    ZipEntry entry = entries.nextElement();
+                    String name = entry.getName();
+                    if (name.endsWith("/libpairipcore.so") || name.equals("lib/arm64-v8a/libpairipcore.so")) {
+                        return true;
+                    }
+                    if (!name.matches("classes([0-9]+)?\\.dex")) continue;
+                    try (InputStream input = zip.getInputStream(entry)) {
+                        if (streamContainsAny(input, markers)) return true;
+                    }
+                }
+            } catch (java.io.IOException ignored) {
+                // A split that is not a readable ZIP will be handled by the library extractor.
+            }
+        }
+        return false;
+    }
+
+    private static boolean streamContainsAny(InputStream input, String[] markers) throws Exception {
+        byte[] buffer = new byte[32 * 1024];
+        String tail = "";
+        int count;
+        int keep = 64;
+        while ((count = input.read(buffer)) != -1) {
+            String part = tail + new String(buffer, 0, count, StandardCharsets.ISO_8859_1);
+            for (String marker : markers) {
+                if (part.contains(marker)) return true;
+                keep = Math.max(keep, marker.length());
+            }
+            tail = part.substring(Math.max(0, part.length() - keep));
+        }
+        return false;
     }
 
     private static File extractLibraries(Context context, ApplicationInfo app) throws Exception {
