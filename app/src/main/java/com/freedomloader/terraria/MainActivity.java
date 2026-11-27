@@ -47,6 +47,11 @@ public final class MainActivity extends Activity {
     private TextView installedView;
     private Button validateButton;
     private Button installButton;
+    private Button connectGameButton;
+    private Button playGameButton;
+    private TextView gameStatusView;
+    private GameRuntime.Result gameRuntimeResult;
+    private boolean checkingGame;
     private File selectedPackage;
     private boolean packageValid;
     private boolean installedCurrent;
@@ -93,6 +98,25 @@ public final class MainActivity extends Activity {
         version.setPadding(0, dp(8), 0, dp(18));
         root.addView(version);
 
+        LinearLayout gameCard = card(root, "ربط Terraria");
+        TextView gameInfo = text(
+                "يفحص التطبيق نسخة Terraria المثبتة وملفات ARM64. إذا كانت النسخة متوافقة وغير محمية بـ PairIP، سيحاول تشغيل Unity داخل عملية Freedom Loader.",
+                14, colorMuted, false);
+        gameCard.addView(gameInfo);
+
+        connectGameButton = button("فحص توافق Terraria");
+        gameCard.addView(connectGameButton);
+        connectGameButton.setOnClickListener(v -> inspectTerraria());
+
+        gameStatusView = text("لم يتم فحص اللعبة بعد.", 13, colorMuted, false);
+        gameStatusView.setPadding(0, dp(10), 0, 0);
+        gameCard.addView(gameStatusView);
+
+        playGameButton = button("تشغيل Terraria داخل Freedom Loader");
+        playGameButton.setEnabled(false);
+        gameCard.addView(playGameButton);
+        playGameButton.setOnClickListener(v -> startTerraria());
+
         LinearLayout importCard = card(root, "استيراد مود");
         TextView info = text("اختر ملفاً بامتداد .fredl. سيتحقق التطبيق من البنية والتوافق "
                 + "وسلامة ملفات ZIP قبل السماح بالتثبيت.", 14, colorMuted, false);
@@ -127,10 +151,10 @@ public final class MainActivity extends Activity {
         installedCard.addView(installedView);
 
         LinearLayout noteCard = card(root, "ملاحظة مهمة");
-        TextView note = text("هذا الإصدار يستورد الحزم ويفحصها ويفكّها بأمان داخل مساحة "
-                + "التطبيق الخاصة. لم يتم بعد ربطه بعملية Terraria، لذلك تثبيت المود هنا "
-                + "لا يعني أنه يعمل داخل اللعبة. دعم تشغيل mod.dll يحتاج Runtime متوافقاً "
-                + "وجسراً لواجهة Terraria واختباراً منفصلاً.", 13, colorMuted, false);
+        TextView note = text("ملفات FREDL تُفحص وتُثبت داخل مساحة التطبيق. الربط داخل اللعبة "
+                + "يعمل فقط مع بناء Terraria متوافق يسمح باستضافة Unity؛ النسخ المحمية بـ PairIP "
+                + "يتم رفضها ولا نحاول تجاوز الحماية. هذه المرحلة تشغّل محرك اللعبة وتفحص IL2CPP؛ "
+                + "تشغيل كود المودات C# يحتاج Runtime وواجهة API واختباراً منفصلاً.", 13, colorMuted, false);
         noteCard.addView(note);
 
         TextView footer = text("FREDL package manager • v0.1.0", 11, colorMuted, false);
@@ -252,6 +276,41 @@ public final class MainActivity extends Activity {
                 });
             }
         });
+    }
+
+
+    private void inspectTerraria() {
+        if (checkingGame) return;
+        checkingGame = true;
+        connectGameButton.setEnabled(false);
+        playGameButton.setEnabled(false);
+        gameStatusView.setText("جارٍ فحص Terraria وتجهيز مكتبات ARM64...");
+        gameStatusView.setTextColor(colorMuted);
+        worker.execute(() -> {
+            GameRuntime.Result result = GameRuntime.prepare(getApplicationContext());
+            runOnUiThread(() -> {
+                checkingGame = false;
+                gameRuntimeResult = result;
+                connectGameButton.setEnabled(true);
+                playGameButton.setEnabled(result.ready);
+                gameStatusView.setText(result.message);
+                gameStatusView.setTextColor(result.ready
+                        ? Color.rgb(158, 224, 176) : Color.rgb(255, 145, 145));
+            });
+        });
+    }
+
+    private void startTerraria() {
+        if (gameRuntimeResult == null || !gameRuntimeResult.ready) {
+            showStatus("افحص توافق Terraria أولاً.", true);
+            return;
+        }
+        try {
+            startActivity(new Intent(this, GameActivity.class));
+        } catch (Throwable error) {
+            gameStatusView.setText("تعذر فتح شاشة اللعبة: " + error.getMessage());
+            gameStatusView.setTextColor(Color.rgb(255, 145, 145));
+        }
     }
 
     private String queryDisplayName(Uri uri) {
