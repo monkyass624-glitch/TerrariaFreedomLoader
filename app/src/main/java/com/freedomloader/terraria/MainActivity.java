@@ -58,9 +58,13 @@ public final class MainActivity extends Activity {
     private native String nativeValidate(String path, String gameVersion, String platform);
     private native String nativeInstall(String path, String modsDirectory,
                                         String gameVersion, String platform);
+    private native String nativeGetInstalledModsReport(String modsDirectory, String gameVersion, String platform);
+    private native String nativeSetModSelected(String modsDirectory, String modId, boolean selected,
+                                                String gameVersion, String platform);
 
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private TextView statusView, selectedView, installedView, importedApkView, gameStatusView;
+    private LinearLayout installedModsContainer;
     private Button validateButton, installButton, importGameButton, installGameButton, launchGameButton;
     private File selectedPackage, importedGameApk;
     private GameApkInfo importedGameInfo;
@@ -135,7 +139,7 @@ public final class MainActivity extends Activity {
         title.setPadding(0, dp(4), 0, dp(4));
         root.addView(title);
         root.addView(text("مدير Terraria وحزم المودات بصيغة .fredl", 15, colorMuted, false));
-        TextView version = text("إصدار اللودر 0.3.2  •  هدف فحص الحزم: " + TARGET_GAME_VERSION + " • ARM64", 12, colorMuted, false);
+        TextView version = text("إصدار اللودر 0.4.0  •  هدف فحص الحزم: " + TARGET_GAME_VERSION + " • ARM64", 12, colorMuted, false);
         version.setPadding(0, dp(8), 0, dp(18));
         root.addView(version);
 
@@ -183,9 +187,13 @@ public final class MainActivity extends Activity {
         LinearLayout installedCard = card(root, "المودات المثبتة محلياً");
         installedView = text("", 13, colorMuted, false);
         installedCard.addView(installedView);
+        installedModsContainer = new LinearLayout(this);
+        installedModsContainer.setOrientation(LinearLayout.VERTICAL);
+        installedModsContainer.setPadding(0, dp(8), 0, 0);
+        installedCard.addView(installedModsContainer);
         LinearLayout noteCard = card(root, "حدود الإصدار الحالي");
-        noteCard.addView(text("حالة تشغيل المودات: غير متاحة في هذا الإصدار. يقبل اللودر APK المحمي بـ PairIP ويثبت اللعبة الأصلية ويشغلها دون تعديل. حزم FREDL تُفحص وتُستخرج محلياً فقط؛ لا يتم تنفيذ mod.dll داخل Terraria. لا يتم حقن كود في عملية اللعبة أو تعديل APK أو تجاوز PairIP أو التوقيع أو الترخيص.", 13, colorMuted, false));
-        TextView footer = text("FREDL package manager • v0.3.2", 11, colorMuted, false);
+        noteCard.addView(text("يقوم المحرك الآن بفحص بيانات المودات المثبتة وحل التبعيات وترتيبها، مع بقاء PairIP كما هي. اختيار المود يعني إدراجه في خطة التشغيل فقط؛ لا يتم تنفيذ mod.dll داخل Terraria حتى يكتمل Runtime وواجهة الربط المتوافقة. لا يتم تعديل APK أو تعطيل الحماية أو تجاوز التوقيع أو الترخيص.", 13, colorMuted, false));
+        TextView footer = text("FREDL native package + dependency planner • v0.4.0", 11, colorMuted, false);
         footer.setGravity(Gravity.CENTER);
         footer.setPadding(0, dp(18), 0, 0);
         root.addView(footer);
@@ -554,19 +562,56 @@ public final class MainActivity extends Activity {
     }
 
     private void refreshInstalledMods() {
-        if (installedView == null) return;
-        File mods = new File(getFilesDir(), "mods");
-        File[] entries = mods.listFiles(File::isDirectory);
-        if (entries == null || entries.length == 0) {
-            installedView.setText("لا توجد مودات مثبتة محلياً.");
+        if (installedView == null || installedModsContainer == null) return;
+        installedModsContainer.removeAllViews();
+        if (!nativeReady) {
+            installedView.setText("محرك FREDL الأصلي غير متاح.");
             return;
         }
-        StringBuilder result = new StringBuilder();
-        for (File entry : entries) {
-            if (result.length() > 0) result.append("\n");
-            result.append("• ").append(entry.getName());
+        File mods = new File(getFilesDir(), "mods");
+        try {
+            org.json.JSONObject report = new org.json.JSONObject(
+                    nativeGetInstalledModsReport(mods.getAbsolutePath(), TARGET_GAME_VERSION, PLATFORM));
+            org.json.JSONArray items = report.optJSONArray("mods");
+            if (items == null || items.length() == 0) {
+                installedView.setText("لا توجد مودات مثبتة محلياً.");
+                return;
+            }
+            boolean orderReady = report.optBoolean("loadOrderReady", false);
+            String orderError = report.optString("loadOrderError", "");
+            installedView.setText(orderReady
+                    ? "ترتيب التبعيات سليم للمودات المحددة. هذا تخطيط فقط وليس تنفيذًا داخل اللعبة."
+                    : "خطة التشغيل غير جاهزة: " + orderError);
+            installedView.setTextColor(orderReady ? colorMuted : Color.rgb(255, 180, 120));
+            for (int i = 0; i < items.length(); i++) {
+                org.json.JSONObject item = items.getJSONObject(i);
+                String id = item.optString("id", "");
+                String name = item.optString("name", id);
+                String version = item.optString("version", "?");
+                boolean selected = item.optBoolean("selected", false);
+                TextView details = text(name + "  •  " + version + "\n" + id +
+                        "\n" + (selected ? "محدد في خطة التشغيل" : "غير محدد"), 13, colorText, true);
+                details.setPadding(0, dp(8), 0, dp(2));
+                installedModsContainer.addView(details);
+                Button select = button(selected ? "إزالة من خطة التشغيل" : "إضافة إلى خطة التشغيل");
+                installedModsContainer.addView(select);
+                select.setOnClickListener(v -> {
+                    select.setEnabled(false);
+                    worker.execute(() -> {
+                        String result = nativeSetModSelected(mods.getAbsolutePath(), id, !selected,
+                                TARGET_GAME_VERSION, PLATFORM);
+                        runOnUiThread(() -> {
+                            showStatus(result.equals("OK")
+                                    ? "تم تحديث خطة تشغيل المودات." : result, !result.equals("OK"));
+                            refreshInstalledMods();
+                        });
+                    });
+                });
+            }
+        } catch (Exception error) {
+            installedView.setText("تعذر قراءة قائمة المودات: " + safeMessage(error));
+            installedView.setTextColor(Color.rgb(255, 145, 145));
         }
-        installedView.setText(result.toString());
     }
 
     private void showStatus(String message, boolean error) {
