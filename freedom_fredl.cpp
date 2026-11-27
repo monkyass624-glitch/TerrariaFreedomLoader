@@ -204,6 +204,10 @@ bool parse_zip(Archive& archive, std::string* error) {
 
         entry.name.assign(reinterpret_cast<const char*>(bytes.data() + cursor + 46), name_length);
         entry.directory = entry.name.back() == '/';
+        if (entry.directory && (entry.compressed_size != 0 || entry.expanded_size != 0)) {
+            set_error(error, "directory entries must not contain file data");
+            return false;
+        }
         if (!safe_relative_path(entry.name, entry.directory)) {
             set_error(error, "unsafe archive path: " + entry.name);
             return false;
@@ -656,8 +660,9 @@ bool validate_manifest(const Json& root, const Archive& archive,
 
     if (!string_field(root, "entrypoint", manifest.entrypoint, false, error)) return false;
     if (!manifest.entrypoint.empty()) {
-        if (!safe_relative_path(manifest.entrypoint, false)) {
-            set_error(error, "entrypoint is not a safe relative path");
+        if (!safe_relative_path(manifest.entrypoint, false) ||
+            fs::path(manifest.entrypoint).extension() != ".dll") {
+            set_error(error, "entrypoint must be a safe relative path to a .dll assembly");
             return false;
         }
         const bool exists = std::any_of(archive.entries.begin(), archive.entries.end(),
@@ -726,8 +731,16 @@ bool load_package(const std::string& path, const std::string& game_version,
 
     Json root;
     JsonParser parser(manifest.raw_json);
-    if (!parser.parse(root, error)) return false;
-    return validate_manifest(root, archive, game_version, platform, manifest, error);
+    if (!parser.parse(root, error) ||
+        !validate_manifest(root, archive, game_version, platform, manifest, error)) return false;
+
+    // Validate every compressed member and CRC before accepting or installing any package.
+    for (const ZipEntry& entry : archive.entries) {
+        if (entry.directory || entry.name == "manifest.json") continue;
+        std::vector<uint8_t> checked_contents;
+        if (!expand_entry(archive, entry, checked_contents, error)) return false;
+    }
+    return true;
 }
 
 bool write_error(char* output, size_t capacity, const std::string& error) {
