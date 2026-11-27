@@ -26,12 +26,14 @@ Android restricts access to some shared-storage locations (including other apps'
 
 ## Phase 3 — Runtime integration in Terraria
 
-- [ ] Determine a supported, reproducible way to load the native component in the target Terraria process.
-- [ ] Confirm exact game build, process ABI, IL2CPP exports, and runtime initialization.
-- [ ] Add a small, read-only in-game bridge and diagnostics before enabling mod code.
-- [ ] Design and test mod lifecycle/API boundaries.
+- [x] Add an in-process Unity host Activity in a separate `:game` process.
+- [x] Detect the installed Terraria package, target version `1.4.5.6.4` / code `301543`, and ARM64 ABI.
+- [x] Extract the installed game libraries into app-private storage and refuse builds whose `libunity.so` depends on `libpairipcore.so`.
+- [x] Load the read-only IL2CPP inspector after the game's native libraries.
+- [ ] Verify the Terraria title screen and IL2CPP inspector on a physical Android 14 device.
+- [ ] Pass enabled FREDL packages into the in-process core and implement mod lifecycle/API boundaries.
 
-The standalone APK process cannot inspect or modify Terraria merely because it contains the same native library. A separate, legitimate in-process loading/embedding mechanism is required.
+The APK now attempts to host Unity in its own isolated `:game` process using the installed Terraria package context. This only works for compatible builds; PairIP-dependent builds are rejected. The host and inspector still require physical-device verification.
 
 ## Phase 4 — Managed mod execution
 
@@ -52,4 +54,4 @@ An ordinary `mod.dll` does not execute in an IL2CPP game on its own. C# support 
 
 ## Current limitations
 
-The GitHub Actions debug APK build completed successfully (run 45951673895). The APK has not yet been installed or tested on a physical device. No in-game loader, C# runtime, or actual mod execution is included in this first APK milestone.
+The GitHub Actions debug APK build completed successfully (run 45951673895). The APK has not yet been installed or tested on a physical device. The in-process host code is now included, but no physical-device game launch has been confirmed. The current native inspector is read-only; there is still no C# runtime, FREDL mod activation, or actual mod execution.
