@@ -327,10 +327,17 @@ extern "C" FL_EXPORT int FreedomLoaderStartInspector(void) {
     return 0;
 }
 
+#if defined(__ANDROID__)
+extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM*, void*) {
+    FreedomLoaderStartInspector();
+    return JNI_VERSION_1_6;
+}
+#else
 extern "C" __attribute__((visibility("default"))) int JNI_OnLoad(void*, void*) {
     FreedomLoaderStartInspector();
     return 0x00010006; // JNI_VERSION_1_6
 }
+#endif
 
 __attribute__((constructor)) static void freedom_loader_constructor() {
     // Safe, read-only diagnostic startup. The process must already contain IL2CPP.
