@@ -7,6 +7,8 @@ import android.content.res.AssetManager;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.InputEvent;
 import android.view.KeyEvent;
@@ -27,6 +29,8 @@ import java.lang.reflect.Proxy;
 
 public final class GameActivity extends Activity {
     private static final String TAG = "FreedomGameHost";
+    private static native int nativeInspectorStatus();
+    private final Handler inspectorHandler = new Handler(Looper.getMainLooper());
 
     private Context gameContext;
     private ClassLoader gameClassLoader;
@@ -90,13 +94,74 @@ public final class GameActivity extends Activity {
             cacheUnityMethods(unityClass);
             View view = getUnityView();
             if (view == null) throw new IllegalStateException("UnityPlayer did not provide a View");
-            setContentView(view);
+
+            FrameLayout gameRoot = new FrameLayout(this);
+            gameRoot.addView(view, new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT));
+            TextView inspectorStatus = new TextView(this);
+            inspectorStatus.setText("Freedom Loader • فحص IL2CPP جارٍ");
+            inspectorStatus.setTextColor(Color.WHITE);
+            inspectorStatus.setTextSize(12);
+            inspectorStatus.setPadding(12, 8, 12, 8);
+            inspectorStatus.setBackgroundColor(0x990E141D);
+            inspectorStatus.setClickable(false);
+            inspectorStatus.setFocusable(false);
+            FrameLayout.LayoutParams statusParams = new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT,
+                    Gravity.TOP | Gravity.START);
+            statusParams.setMargins(12, 12, 12, 12);
+            gameRoot.addView(inspectorStatus, statusParams);
+            setContentView(gameRoot);
             view.requestFocus();
+            watchInspectorStatus(inspectorStatus);
             Log.i(TAG, "UnityPlayer is running inside the Freedom Loader process");
         } catch (Throwable error) {
             Log.e(TAG, "Failed to host Terraria", error);
             showFailure("تعذر تشغيل Terraria داخل Freedom Loader:\n" + describe(error));
         }
+    }
+
+    private void watchInspectorStatus(TextView label) {
+        final long deadline = android.os.SystemClock.uptimeMillis() + 90000L;
+        Runnable check = new Runnable() {
+            @Override public void run() {
+                int status;
+                try {
+                    status = nativeInspectorStatus();
+                } catch (Throwable error) {
+                    label.setText("Freedom Loader: تعذر قراءة حالة IL2CPP");
+                    label.setTextColor(Color.rgb(255, 145, 145));
+                    return;
+                }
+                if (status == 1) {
+                    label.setText("Freedom Loader • IL2CPP + Assembly-CSharp جاهز");
+                    label.setTextColor(Color.rgb(158, 224, 176));
+                    return;
+                }
+                if (status < 0) {
+                    String reason;
+                    switch (status) {
+                        case -1: reason = "انتهت مهلة انتظار IL2CPP"; break;
+                        case -2: reason = "تعذر فتح libil2cpp.so"; break;
+                        case -3: reason = "واجهات IL2CPP المطلوبة غير موجودة"; break;
+                        case -4: reason = "نطاق IL2CPP غير جاهز"; break;
+                        case -5: reason = "Assembly-CSharp غير موجود"; break;
+                        default: reason = "فشل فحص IL2CPP";
+                    }
+                    label.setText("Freedom Loader • " + reason);
+                    label.setTextColor(Color.rgb(255, 145, 145));
+                    return;
+                }
+                if (android.os.SystemClock.uptimeMillis() >= deadline) {
+                    label.setText("Freedom Loader • ما زال IL2CPP قيد الانتظار");
+                    return;
+                }
+                inspectorHandler.postDelayed(this, 1000L);
+            }
+        };
+        inspectorHandler.postDelayed(check, 1000L);
     }
 
     private Object constructUnityPlayer(Class<?> unityClass) throws Exception {
