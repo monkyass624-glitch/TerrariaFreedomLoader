@@ -79,6 +79,36 @@ with tempfile.TemporaryDirectory(prefix="fredl-tests-") as temporary:
     assert (installed / "assets" / "readme.txt").read_text() == "hello from FREDL"
     assert not (root / "outside.txt").exists()
 
+
+    # Dependency resolver creates a topological startup order and blocks unsafe selections.
+    base_pkg = root / "base.fredl"
+    plugin_pkg = root / "plugin.fredl"
+    make_package(base_pkg, manifest(
+        id="com.example.base", name="Base Library", version="1.2.0"))
+    make_package(plugin_pkg, manifest(
+        id="com.example.plugin", name="Dependent Plugin", version="2.0.0",
+        dependencies={"com.example.base": ">=1.0.0"}))
+    planned_mods = root / "planned-mods"
+    assert run("install", base_pkg, planned_mods, GAME, PLATFORM) == "INSTALLED"
+    assert run("install", plugin_pkg, planned_mods, GAME, PLATFORM) == "INSTALLED"
+
+    # A dependent mod cannot be selected until its dependency is selected.
+    assert "not selected" in run(
+        "select", planned_mods, "com.example.plugin", "on", GAME, PLATFORM, expected=6)
+    assert run("select", planned_mods, "com.example.base", "on", GAME, PLATFORM) == "SELECTED"
+    assert run("select", planned_mods, "com.example.plugin", "on", GAME, PLATFORM) == "SELECTED"
+
+    # The load order must place dependencies before dependents.
+    plan = json.loads(run("list", planned_mods, GAME, PLATFORM))
+    assert plan["loadOrderReady"] is True
+    assert plan["loadOrder"] == ["com.example.base", "com.example.plugin"]
+
+    # A dependency cannot be deselected while an enabled dependent needs it.
+    assert "not selected" in run(
+        "select", planned_mods, "com.example.base", "off", GAME, PLATFORM, expected=6)
+    assert run("select", planned_mods, "com.example.plugin", "off", GAME, PLATFORM) == "DESELECTED"
+    assert run("select", planned_mods, "com.example.base", "off", GAME, PLATFORM) == "DESELECTED"
+
     # Directory scanner reports installed package files; installed folders are not .fredl files.
     packages = root / "packages"
     packages.mkdir()
