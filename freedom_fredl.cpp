@@ -816,8 +816,8 @@ bool install_package(const std::string& path, const std::string& mods_directory,
         }
         std::ofstream output(destination, std::ios::binary | std::ios::trunc);
         if (!output || (!contents.empty() &&
-            !output.write(reinterpret_cast<const char*>(contents.data(),
-                static_cast<std::streamsize>(contents.size()))))) {
+            !output.write(reinterpret_cast<const char*>(contents.data()),
+                static_cast<std::streamsize>(contents.size())))) {
             ec = std::make_error_code(std::errc::io_error);
             break;
         }
@@ -860,7 +860,7 @@ bool install_package(const std::string& path, const std::string& mods_directory,
 
 } // namespace
 
-extern "C" FL_EXPORT int FreedomLoaderValidateFredlFile(
+extern "C" FREDL_EXPORT int FreedomLoaderValidateFredlFile(
     const char* package_path, const char* game_version, const char* platform,
     char* error, size_t error_capacity) {
     if (error && error_capacity) error[0] = '\0';
@@ -876,7 +876,7 @@ extern "C" FL_EXPORT int FreedomLoaderValidateFredlFile(
     return 1;
 }
 
-extern "C" FL_EXPORT int FreedomLoaderInstallFredlFile(
+extern "C" FREDL_EXPORT int FreedomLoaderInstallFredlFile(
     const char* package_path, const char* mods_directory, const char* game_version,
     const char* platform, char* error, size_t error_capacity) {
     if (error && error_capacity) error[0] = '\0';
@@ -893,7 +893,7 @@ extern "C" FL_EXPORT int FreedomLoaderInstallFredlFile(
     return 1;
 }
 
-extern "C" FL_EXPORT int FreedomLoaderScanFredlDirectory(
+extern "C" FREDL_EXPORT int FreedomLoaderScanFredlDirectory(
     const char* mods_directory, const char* game_version, const char* platform,
     char* report_json, size_t report_capacity) {
     if (report_json && report_capacity) report_json[0] = '\0';
