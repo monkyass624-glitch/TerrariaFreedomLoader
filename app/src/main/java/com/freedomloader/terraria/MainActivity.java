@@ -225,6 +225,7 @@ public final class MainActivity extends Activity {
                     }
                     output.getFD().sync();
                 }
+                final long copiedBytes = total;
                 String validation = nativeReady
                         ? nativeValidate(destination.getAbsolutePath(), GAME_VERSION, PLATFORM)
                         : "محرك FREDL الأصلي غير محمّل";
@@ -232,7 +233,7 @@ public final class MainActivity extends Activity {
                     selectedPackage = destination;
                     packageValid = validation.equals("VALID");
                     installedCurrent = false;
-                    selectedView.setText(displayName + "  •  " + (total / 1024) + " KB");
+                    selectedView.setText(displayName + "  •  " + (copiedBytes / 1024) + " KB");
                     showStatus(validation, !validation.equals("VALID"));
                     validateButton.setEnabled(nativeReady);
                     installButton.setEnabled(nativeReady && validation.equals("VALID"));
