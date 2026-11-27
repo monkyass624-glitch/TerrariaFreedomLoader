@@ -10,7 +10,7 @@ Target: Android 14+, ARM64, Terraria Mobile 1.4.5.6.4 first.
 - [x] Bridge the native FREDL validator and installer to Java using JNI.
 - [x] Validate the package before enabling installation.
 - [x] Install extracted files into the APK's private `files/mods/<mod-id>` directory.
-- [ ] Complete the first GitHub Actions APK build and resolve any build errors.
+- [x] Complete the first GitHub Actions APK build and upload the debug APK artifact (run 45951673895).
 - [ ] Install the APK on an Android 14 ARM64 device and test import/validation/install against good and malformed packages.
 
 This phase manages packages only. The current app's private storage is not Terraria's storage, so a successful local install does not make the mod active in the game.
@@ -52,4 +52,4 @@ An ordinary `mod.dll` does not execute in an IL2CPP game on its own. C# support 
 
 ## Current limitations
 
-No APK has been confirmed installed on a physical device yet. The first workflow must pass before an APK artifact can be offered as installable. No in-game loader, C# runtime, or actual mod execution is included in this first APK milestone.
+The GitHub Actions debug APK build completed successfully (run 45951673895). The APK has not yet been installed or tested on a physical device. No in-game loader, C# runtime, or actual mod execution is included in this first APK milestone.
