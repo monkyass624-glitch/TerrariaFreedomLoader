@@ -83,6 +83,8 @@ The reader:
 
 Implemented: FREDL ZIP parsing, JSON manifest parsing, metadata/compatibility validation, CRC checking, directory scanning, and safe extraction.
 
-Not implemented yet: dependency resolution against installed mods, C# execution, the Terraria mod API bridge, runtime activation/unload, and in-game verification. IL2CPP does not execute an ordinary .NET DLL by itself. Never treat a validated or installed `mod.dll` as running code until a compatible runtime is integrated and tested.
+Implemented in the 0.4.0 native core: installed-manifest inspection, selection state, dependency version checks (`*`, exact version, `>=x.y.z`, and `^x.y.z`), missing/disabled dependency detection, cycle detection, and dependency-first startup ordering. The Android UI can select mods for a future startup profile. Selection is planning state only; it does not execute mod code.
+
+Not implemented yet: C# assembly execution, the Terraria mod API bridge, in-game activation/unload, and in-game verification. IL2CPP does not execute an ordinary .NET DLL by itself. Never treat a validated or installed `mod.dll` as running code until a compatible runtime is integrated and tested.
 
 Native shared libraries are not accepted as mod entrypoints. Do not add an arbitrary native `.so` loader to the package format.
