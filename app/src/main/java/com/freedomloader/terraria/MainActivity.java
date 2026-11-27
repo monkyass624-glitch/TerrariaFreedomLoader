@@ -268,7 +268,7 @@ public final class MainActivity extends Activity {
                     importedGameInfo = info;
                     importingGame = false;
                     importedApkView.setText(label + " • " + (copied / (1024 * 1024)) + " MiB\nالحزمة: " + info.packageName +
-                            "\nالإصدار: " + info.versionName + " (code " + info.versionCode) +
+                            "\nالإصدار: " + info.versionName + " (code " + info.versionCode +
                             "\nARM64: موجود • global-metadata.dat: " + (info.hasMetadata ? "موجود" : "غير موجود"));
                     gameStatusView.setText(info.isFredlTarget()
                             ? "APK يطابق إصدار المودات المستهدف " + TARGET_GAME_VERSION + "."
