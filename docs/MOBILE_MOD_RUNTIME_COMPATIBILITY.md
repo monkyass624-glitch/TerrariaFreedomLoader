@@ -40,3 +40,27 @@ The current Freedom Loader app starts the original installed game as a separate 
 - Compatible game build for the previously inspected PairIP APK: not established.
 - Sample mod running in Terraria through Freedom Loader: not built or device-tested.
 - No new APK is produced by this research/decision step.
+
+
+## Verified PairIP finding (2026-11-27)
+
+A source-level review of the current Bunny Loader implementation resolves the earlier ambiguity:
+
+- Bunny's bundled game profile is Terraria 1.4.5.8.6 / versionCode 301720. Its `BundledRuntime.pairipCheck` rejects a bundled `libunity.so` whose ELF `DT_NEEDED` list contains `libpairipcore.so`.
+- Bunny's `refs/README.md` explicitly says the Google Play build from 1.4.5.8 ships with PairIP and is not the binary set Bunny runs. The fact that its general README says users need Google Play Terraria must not be read as proof that the protected Play binaries are loaded by its mod runtime.
+- Bunny's historical Unity-hosting investigation specifically examined Terraria 1.4.5.6.4. It records that PairIP-protected application string constants remain unavailable when the game is hosted in another app without the game's legitimate PairIP initialization. The document says the alternate design would have to operate in the original game process and notes that this is a different, privileged injection architecture.
+- Pylon's current README explicitly lists Google Play PairIP builds as unsupported.
+- 505 Games' support article says mods and texture packs are not supported on mobile platforms.
+
+References:
+- https://github.com/JonataOliveiraa/Bunny-Loader/blob/main/app/src/main/kotlin/dev/bunnyloader/game/BundledRuntime.kt
+- https://github.com/JonataOliveiraa/Bunny-Loader/blob/main/refs/README.md
+- https://github.com/JonataOliveiraa/Bunny-Loader/blob/main/docs/historico/UNITY-HOSTING.md
+- https://github.com/UnrealMultiple/Pylon-Loader
+- https://support.505games.com/support/solutions/articles/150000146904-can-we-get-mods-or-texture-packs-
+
+### Consequence for Freedom Loader
+
+For the user's inspected Terraria 1.4.5.6.4 / versionCode 301543 PairIP APK, the only verified behavior we can provide without changing or bypassing the game's protection is normal APK import, Android installation, and normal game launch. No compatible in-process mod runtime has been established for this exact protected binary. FREDL archives therefore remain locally managed packages and must not be presented as running mods.
+
+Do not silently turn off PairIP, alter the game's signature or license checks, or claim that loading a DLL in Freedom Loader's own process affects Terraria. A true runtime requires a supported integration path from the game/protection vendor or a different user-owned game build whose exact binaries are explicitly supported by a mod runtime.
