@@ -10,6 +10,9 @@
 #include <pthread.h>
 #include <string>
 #include <unistd.h>
+#if defined(__ANDROID__)
+#include <jni.h>
+#endif
 
 #if defined(FREEDOM_ENABLE_EXPERIMENTAL_HOOK)
 #include "dobby.h"
@@ -205,18 +208,30 @@ void dump_method(Api& a, Il2CppClass* klass, const char* class_name,
 #endif
 }
 
+std::atomic<int> g_inspector_status{0}; // 0 waiting, 1 Assembly-CSharp found, negative = failure
+
 void inspect_once() {
     void* handle = dlopen("libil2cpp.so", RTLD_NOW);
     if (!handle) {
         FL_LOGE("dlopen libil2cpp.so failed: %s", dlerror());
+        g_inspector_status.store(-2, std::memory_order_release);
         return;
     }
 
     Api api;
-    if (!resolve_api(handle, api)) { dlclose(handle); return; }
+    if (!resolve_api(handle, api)) {
+        g_inspector_status.store(-3, std::memory_order_release);
+        dlclose(handle);
+        return;
+    }
 
     Il2CppDomain* domain = api.domain_get();
-    if (!domain) { FL_LOGE("IL2CPP domain is not initialized yet"); dlclose(handle); return; }
+    if (!domain) {
+        FL_LOGE("IL2CPP domain is not initialized yet");
+        g_inspector_status.store(-4, std::memory_order_release);
+        dlclose(handle);
+        return;
+    }
     Il2CppThread* attached = api.thread_attach(domain);
 
     ImageSearch image_search;
@@ -237,6 +252,7 @@ void inspect_once() {
     }
     if (!game_image) {
         FL_LOGE("Assembly-CSharp image not found (assemblies=%zu)", assembly_count);
+        g_inspector_status.store(-5, std::memory_order_release);
     } else {
         struct Target { const char* klass; const char* method; int arity; uintptr_t rva; };
         // Targets are chosen for signature validation; this pass is read-only.
@@ -259,6 +275,8 @@ void inspect_once() {
             dump_method(api, klass, target.klass, target.method, target.arity,
                         image_search.base, target.rva);
         }
+        g_inspector_status.store(1, std::memory_order_release);
+        FL_LOGI("IL2CPP probe complete: Assembly-CSharp found");
     }
 
     if (attached && api.thread_detach) api.thread_detach(attached);
@@ -279,9 +297,21 @@ void* inspector_thread(void*) {
         sleep(1);
     }
     FL_LOGE("Timed out waiting for IL2CPP domain");
+    g_inspector_status.store(-1, std::memory_order_release);
     return nullptr;
 }
 } // namespace
+
+extern "C" FL_EXPORT int FreedomLoaderInspectorStatus(void) {
+    return g_inspector_status.load(std::memory_order_acquire);
+}
+
+#if defined(__ANDROID__)
+extern "C" JNIEXPORT jint JNICALL
+Java_com_freedomloader_terraria_GameActivity_nativeInspectorStatus(JNIEnv*, jclass) {
+    return static_cast<jint>(FreedomLoaderInspectorStatus());
+}
+#endif
 
 extern "C" FL_EXPORT int FreedomLoaderStartInspector(void) {
     bool expected = false;
