@@ -109,6 +109,34 @@ with tempfile.TemporaryDirectory(prefix="fredl-tests-") as temporary:
     assert run("select", planned_mods, "com.example.plugin", "off", GAME, PLATFORM) == "DESELECTED"
     assert run("select", planned_mods, "com.example.base", "off", GAME, PLATFORM) == "DESELECTED"
 
+
+    # Version constraints are enforced rather than merely checking dependency presence.
+    incompatible_pkg = root / "incompatible.fredl"
+    make_package(incompatible_pkg, manifest(
+        id="com.example.incompatible", name="Incompatible", version="1.0.0",
+        dependencies={"com.example.base": ">=3.0.0"}))
+    assert run("install", incompatible_pkg, planned_mods, GAME, PLATFORM) == "INSTALLED"
+    assert "version mismatch" in run(
+        "select", planned_mods, "com.example.incompatible", "on", GAME, PLATFORM, expected=6)
+
+    # A preselected cyclic dependency graph is rejected by the load-order planner.
+    cycle_a = root / "cycle-a.fredl"
+    cycle_b = root / "cycle-b.fredl"
+    make_package(cycle_a, manifest(
+        id="com.example.cyclea", name="Cycle A", version="1.0.0",
+        dependencies={"com.example.cycleb": "*"}))
+    make_package(cycle_b, manifest(
+        id="com.example.cycleb", name="Cycle B", version="1.0.0",
+        dependencies={"com.example.cyclea": "*"}))
+    cycle_mods = root / "cycle-mods"
+    assert run("install", cycle_a, cycle_mods, GAME, PLATFORM) == "INSTALLED"
+    assert run("install", cycle_b, cycle_mods, GAME, PLATFORM) == "INSTALLED"
+    (cycle_mods / "com.example.cyclea" / ".fredl-selected").write_text("FREDL_SELECTED_V1\n")
+    (cycle_mods / "com.example.cycleb" / ".fredl-selected").write_text("FREDL_SELECTED_V1\n")
+    cycle_report = json.loads(run("list", cycle_mods, GAME, PLATFORM))
+    assert cycle_report["loadOrderReady"] is False
+    assert "cycle" in cycle_report["loadOrderError"]
+
     # Directory scanner reports installed package files; installed folders are not .fredl files.
     packages = root / "packages"
     packages.mkdir()
