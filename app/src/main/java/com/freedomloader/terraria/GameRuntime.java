@@ -128,7 +128,7 @@ public final class GameRuntime {
     }
 
     private static File extractLibraries(Context context, ApplicationInfo app) throws Exception {
-        File root = new File(context.getFilesDir(), "terraria-runtime/" + ABI);
+        File root = new File(context.getFilesDir(), "terraria-runtime/" + TARGET_VERSION_CODE + "/" + ABI);
         if (!root.exists() && !root.mkdirs()) throw new Exception("تعذر إنشاء مجلد ملفات اللعبة");
         List<String> apkPaths = new ArrayList<>();
         apkPaths.add(app.sourceDir);
