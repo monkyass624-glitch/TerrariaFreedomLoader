@@ -349,6 +349,7 @@ public final class GameActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        inspectorHandler.removeCallbacksAndMessages(null);
         invoke(destroyMethod);
         unityPlayer = null;
         mUnityPlayer = null;
