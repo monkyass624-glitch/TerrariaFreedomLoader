@@ -419,8 +419,7 @@ public final class MainActivity extends Activity {
                     importedApkView.setText("Terraria.apk محفوظ • الإصدار: " + info.versionName +
                             " • ARM64: موجود • PairIP: " + info.pairIpLabel());
                     gameStatusView.setText(info.modRuntimeStatus());
-                    gameStatusView.setTextColor(info.pairIpStatus == ElfDependencyInspector.FOUND
-                            ? Color.rgb(255, 145, 145) : Color.rgb(255, 196, 120));
+                    gameStatusView.setTextColor(Color.rgb(255, 196, 120));
                     updateGameButtons();
                 });
             } catch (Exception error) {
