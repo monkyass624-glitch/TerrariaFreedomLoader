@@ -10,6 +10,8 @@ on:
       - 'app/**'
       - 'freedom_fredl.cpp'
       - 'freedom_fredl.h'
+      - 'freedom_runtime_inspector.cpp'
+      - 'freedom_runtime_inspector.h'
       - '.github/workflows/build-apk.yml'
 
 permissions:
