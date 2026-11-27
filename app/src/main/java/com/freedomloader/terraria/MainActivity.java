@@ -70,14 +70,38 @@ public final class MainActivity extends Activity {
         final String packageName, versionName;
         final long versionCode;
         final boolean hasMetadata;
-        GameApkInfo(String packageName, String versionName, long versionCode, boolean hasMetadata) {
+        final int pairIpStatus;
+        GameApkInfo(String packageName, String versionName, long versionCode,
+                    boolean hasMetadata, int pairIpStatus) {
             this.packageName = packageName;
             this.versionName = versionName;
             this.versionCode = versionCode;
             this.hasMetadata = hasMetadata;
+            this.pairIpStatus = pairIpStatus;
         }
         boolean isFredlTarget() {
             return TARGET_GAME_VERSION.equals(versionName) || versionCode == 301543L;
+        }
+        String pairIpLabel() {
+            if (pairIpStatus == ElfDependencyInspector.FOUND) return "موجود";
+            if (pairIpStatus == ElfDependencyInspector.NOT_FOUND) return "لم يُكتشف";
+            return "تعذر الفحص";
+        }
+        String modRuntimeStatus() {
+            String versionStatus = isFredlTarget()
+                    ? "الإصدار يطابق الهدف " + TARGET_GAME_VERSION + "."
+                    : "الإصدار لا يطابق الهدف الحالي " + TARGET_GAME_VERSION + ".";
+            if (pairIpStatus == ElfDependencyInspector.FOUND) {
+                return versionStatus + "\nاكتشف الفحص اعتماد libunity.so على libpairipcore.so (PairIP). "
+                        + "هذا البناء مرفوض من مسارات التحميل المعروفة التي تتطلب libunity.so بلا PairIP. "
+                        + "لن يحاول Freedom Loader تجاوز الحماية.";
+            }
+            if (pairIpStatus == ElfDependencyInspector.UNKNOWN) {
+                return versionStatus + "\nتعذر حسم حالة PairIP من ملف libunity.so.";
+            }
+            return versionStatus + "\nلم يُكتشف اعتماد مباشر على PairIP في libunity.so، لكن هذا لا يثبت التوافق. "
+                    + "Freedom Loader لا يحتوي حالياً على محرك ينفّذ المودات داخل Terraria؛ "
+                    + "ملفات FREDL تبقى مخزنة محلياً فقط.";
         }
     }
 
@@ -112,7 +136,7 @@ public final class MainActivity extends Activity {
         title.setPadding(0, dp(4), 0, dp(4));
         root.addView(title);
         root.addView(text("مدير Terraria وحزم المودات بصيغة .fredl", 15, colorMuted, false));
-        TextView version = text("إصدار اللودر 0.2.0  •  هدف المودات الحالي: " + TARGET_GAME_VERSION + " • ARM64", 12, colorMuted, false);
+        TextView version = text("إصدار اللودر 0.3.0  •  هدف فحص الحزم: " + TARGET_GAME_VERSION + " • ARM64", 12, colorMuted, false);
         version.setPadding(0, dp(8), 0, dp(18));
         root.addView(version);
 
@@ -161,8 +185,8 @@ public final class MainActivity extends Activity {
         installedView = text("", 13, colorMuted, false);
         installedCard.addView(installedView);
         LinearLayout noteCard = card(root, "حدود الإصدار الحالي");
-        noteCard.addView(text("يمكن لهذا الإصدار استيراد APK وفحصه وطلب تثبيته وتشغيل نسخة Terraria المثبتة، كما يمكنه التحقق من ملفات FREDL وحفظ المودات محلياً. حفظ المود لا يفعّله داخل اللعبة تلقائياً؛ ما زال يلزم تطوير واجهة Runtime متوافقة واختبارها. لا يتم تجاوز PairIP أو التوقيع أو الترخيص، ولا يتم تعديل APK اللعبة.", 13, colorMuted, false));
-        TextView footer = text("FREDL package manager • v0.2.0", 11, colorMuted, false);
+        noteCard.addView(text("حالة تشغيل المودات: غير متاحة في هذا الإصدار. يستطيع اللودر استيراد Terraria APK وفحص اعتماد PairIP فيه، وطلب تثبيت اللعبة الأصلية وتشغيلها، كما يستطيع فحص حزم FREDL واستخراجها إلى مساحة التطبيق. لا يتم تحميل mod.dll داخل اللعبة، ولا يؤثر تثبيت FREDL على اللعب حتى يضاف Runtime متوافق ويُختبر. لا يتم تعديل APK اللعبة أو تجاوز PairIP أو التوقيع أو الترخيص.", 13, colorMuted, false));
+        TextView footer = text("FREDL package manager • v0.3.0", 11, colorMuted, false);
         footer.setGravity(Gravity.CENTER);
         footer.setPadding(0, dp(18), 0, 0);
         root.addView(footer);
@@ -269,11 +293,11 @@ public final class MainActivity extends Activity {
                     importingGame = false;
                     importedApkView.setText(label + " • " + (copied / (1024 * 1024)) + " MiB\nالحزمة: " + info.packageName +
                             "\nالإصدار: " + info.versionName + " (code " + info.versionCode +
-                            "\nARM64: موجود • global-metadata.dat: " + (info.hasMetadata ? "موجود" : "غير موجود"));
-                    gameStatusView.setText(info.isFredlTarget()
-                            ? "APK يطابق إصدار المودات المستهدف " + TARGET_GAME_VERSION + "."
-                            : "تم استيراد APK، لكن إصدار FREDL الحالي يستهدف " + TARGET_GAME_VERSION + "؛ يمكن تثبيت اللعبة وتشغيلها، لكن توافق المودات غير مؤكد.");
-                    gameStatusView.setTextColor(info.isFredlTarget() ? Color.rgb(158, 224, 176) : Color.rgb(255, 196, 120));
+                            "\nARM64: موجود • global-metadata.dat: " + (info.hasMetadata ? "موجود" : "غير موجود") +
+                            "\nPairIP: " + info.pairIpLabel());
+                    gameStatusView.setText(info.modRuntimeStatus());
+                    gameStatusView.setTextColor(info.pairIpStatus == ElfDependencyInspector.FOUND
+                            ? Color.rgb(255, 145, 145) : Color.rgb(255, 196, 120));
                     updateGameButtons();
                     showStatus("تم استيراد APK وفحصه. لم يتم تثبيته بعد.", false);
                 });
@@ -300,13 +324,20 @@ public final class MainActivity extends Activity {
         long code = Build.VERSION.SDK_INT >= 28 ? info.getLongVersionCode() : info.versionCode;
         String version = info.versionName == null ? "غير معروف" : info.versionName;
         boolean il2cpp, unity, metadata;
+        int pairIpStatus = ElfDependencyInspector.UNKNOWN;
         try (ZipFile zip = new ZipFile(apk)) {
             il2cpp = zip.getEntry("lib/arm64-v8a/libil2cpp.so") != null;
             unity = zip.getEntry("lib/arm64-v8a/libunity.so") != null;
             metadata = zip.getEntry("assets/bin/Data/Managed/Metadata/global-metadata.dat") != null;
+            java.util.zip.ZipEntry unityEntry = zip.getEntry("lib/arm64-v8a/libunity.so");
+            if (unityEntry != null) {
+                try (InputStream unityInput = zip.getInputStream(unityEntry)) {
+                    pairIpStatus = ElfDependencyInspector.inspectPairIp(unityInput);
+                }
+            }
         }
         if (!il2cpp || !unity) throw new Exception("APK لا يحتوي libil2cpp.so وlibunity.so لمعمارية arm64-v8a. قد يكون ملف split ناقصاً.");
-        return new GameApkInfo(info.packageName, version, code, metadata);
+        return new GameApkInfo(info.packageName, version, code, metadata, pairIpStatus);
     }
 
     private void requestGameInstall() {
@@ -387,7 +418,11 @@ public final class MainActivity extends Activity {
                 runOnUiThread(() -> {
                     importedGameApk = apk;
                     importedGameInfo = info;
-                    importedApkView.setText("Terraria.apk محفوظ • الإصدار: " + info.versionName + " • ARM64: موجود");
+                    importedApkView.setText("Terraria.apk محفوظ • الإصدار: " + info.versionName +
+                            " • ARM64: موجود • PairIP: " + info.pairIpLabel());
+                    gameStatusView.setText(info.modRuntimeStatus());
+                    gameStatusView.setTextColor(info.pairIpStatus == ElfDependencyInspector.FOUND
+                            ? Color.rgb(255, 145, 145) : Color.rgb(255, 196, 120));
                     updateGameButtons();
                 });
             } catch (Exception error) {
@@ -408,7 +443,8 @@ public final class MainActivity extends Activity {
             if (Build.VERSION.SDK_INT >= 33) info = getPackageManager().getPackageInfo(GAME_PACKAGE, PackageManager.PackageInfoFlags.of(0));
             else info = getPackageManager().getPackageInfo(GAME_PACKAGE, 0);
             String version = info.versionName == null ? "غير معروف" : info.versionName;
-            gameStatusView.setText("Terraria مثبتة على الجهاز • الإصدار: " + version);
+            gameStatusView.setText("Terraria مثبتة على الجهاز • الإصدار: " + version +
+                    "\nلم يتم فحص اعتماد PairIP من APK المثبت، ومحرك المودات غير مدمج بعد.");
             gameStatusView.setTextColor(Color.rgb(158, 224, 176));
             launchGameButton.setEnabled(true);
         } catch (PackageManager.NameNotFoundException e) {
