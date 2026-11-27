@@ -48,6 +48,8 @@ public final class MainActivity extends Activity {
     private Button validateButton;
     private Button installButton;
     private File selectedPackage;
+    private boolean packageValid;
+    private boolean installedCurrent;
 
     private int colorSurface = Color.rgb(25, 29, 37);
     private int colorCard = Color.rgb(36, 42, 53);
@@ -228,6 +230,8 @@ public final class MainActivity extends Activity {
                         : "محرك FREDL الأصلي غير محمّل";
                 runOnUiThread(() -> {
                     selectedPackage = destination;
+                    packageValid = validation.equals("VALID");
+                    installedCurrent = false;
                     selectedView.setText(displayName + "  •  " + (total / 1024) + " KB");
                     showStatus(validation, !validation.equals("VALID"));
                     validateButton.setEnabled(nativeReady);
@@ -237,6 +241,8 @@ public final class MainActivity extends Activity {
             } catch (Exception error) {
                 runOnUiThread(() -> {
                     selectedPackage = null;
+                    packageValid = false;
+                    installedCurrent = false;
                     selectedView.setText("لم يتم اختيار حزمة صالحة");
                     showStatus("فشل الاستيراد: " + error.getMessage(), true);
                     validateButton.setEnabled(false);
@@ -265,7 +271,8 @@ public final class MainActivity extends Activity {
             String result = nativeValidate(selectedPackage.getAbsolutePath(), GAME_VERSION, PLATFORM);
             runOnUiThread(() -> {
                 showStatus(result, !result.equals("VALID"));
-                installButton.setEnabled(result.equals("VALID"));
+                packageValid = result.equals("VALID");
+                installedCurrent = false;
                 setBusy(false);
             });
         });
@@ -281,7 +288,8 @@ public final class MainActivity extends Activity {
             runOnUiThread(() -> {
                 showStatus(result + "\nالمجلد المحلي: " + mods.getAbsolutePath(),
                         !result.equals("INSTALLED"));
-                installButton.setEnabled(false);
+                installedCurrent = result.equals("INSTALLED");
+                packageValid = false;
                 setBusy(false);
                 refreshInstalled();
             });
@@ -311,10 +319,10 @@ public final class MainActivity extends Activity {
     }
 
     private void setBusy(boolean busy) {
-        if (validateButton != null && selectedPackage != null)
-            validateButton.setEnabled(!busy && nativeReady);
-        if (installButton != null && selectedPackage != null)
-            installButton.setEnabled(!busy && nativeReady);
+        if (validateButton != null)
+            validateButton.setEnabled(!busy && nativeReady && selectedPackage != null);
+        if (installButton != null)
+            installButton.setEnabled(!busy && nativeReady && packageValid && !installedCurrent);
     }
 
     @Override
