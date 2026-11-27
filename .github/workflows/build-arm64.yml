@@ -1,4 +1,4 @@
-name: Build Freedom Loader runtime inspector (ARM64)
+name: Build Freedom Loader runtime and FREDL validator (ARM64)
 
 on:
   workflow_dispatch:
@@ -7,6 +7,10 @@ on:
       - 'CMakeLists.txt'
       - 'freedom_runtime_inspector.cpp'
       - 'freedom_runtime_inspector.h'
+      - 'freedom_fredl.cpp'
+      - 'freedom_fredl.h'
+      - 'fredl_validate_cli.cpp'
+      - 'tests/**'
       - '.github/workflows/build-arm64.yml'
 
 jobs:
@@ -14,6 +18,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Configure host validation build
+        run: cmake -S . -B build-host -DCMAKE_BUILD_TYPE=Release
+      - name: Build host validator and native library
+        run: cmake --build build-host --config Release --parallel 2
+      - name: Run FREDL package tests
+        run: ctest --test-dir build-host --output-on-failure
       - name: Set up Android NDK
         uses: nttld/setup-ndk@v1
         id: setup-ndk
