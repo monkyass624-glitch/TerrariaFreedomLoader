@@ -1,0 +1,17 @@
+{
+  "format": "FREDL",
+  "formatVersion": 1,
+  "id": "com.example.firstmod",
+  "name": "First Mod",
+  "version": "1.0.0",
+  "author": "Example Author",
+  "description": "A sample Terraria Freedom Loader mod package.",
+  "game": {
+    "id": "terraria-mobile",
+    "versions": ["1.4.5.6.4"]
+  },
+  "platforms": ["android-arm64"],
+  "entrypoint": "mod.dll",
+  "assetsDirectory": "assets",
+  "dependencies": {}
+}
