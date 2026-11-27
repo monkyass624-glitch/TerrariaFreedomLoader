@@ -39,7 +39,7 @@
 - استيراد ملفات `.fredl` من مدير ملفات Android.
 - فحص الحزمة عبر قارئ C++ الأصلي من خلال JNI.
 - تثبيت وفك الحزمة داخل المساحة الخاصة بالتطبيق.
-- بناء APK عبر GitHub Actions: `.github/workflows/build-apk.yml`.
+- بناء APK عبر GitHub Actions بنجاح (Debug ARM64): [صفحة البناء 45951673895](https://github.com/monkyass624-glitch/TerrariaFreedomLoader/actions/runs/45951673895).
 
 **تنبيه:** هذا التطبيق حالياً مدير حزم مستقل. المودات المثبتة في مساحة التطبيق الخاصة لا تعمل تلقائياً داخل Terraria. لا يزال ربط مجلد اللعبة وآلية التحميل داخل عملية Terraria وRuntime مودات C# مراحل غير مكتملة.
 
