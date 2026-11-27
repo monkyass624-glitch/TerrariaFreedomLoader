@@ -858,6 +858,271 @@ bool install_package(const std::string& path, const std::string& mods_directory,
     return true;
 }
 
+
+
+struct InstalledMod {
+    fs::path directory;
+    std::string id, name, version, entrypoint;
+    std::map<std::string, std::string> dependencies;
+    bool selected = false;
+};
+
+bool parse_semver_core(const std::string& input, int parts[3]) {
+    std::string value = input;
+    const size_t suffix = value.find_first_of("-+");
+    if (suffix != std::string::npos) value.resize(suffix);
+    size_t pos = 0;
+    for (int i = 0; i < 3; ++i) {
+        const size_t start = pos;
+        while (pos < value.size() && std::isdigit(static_cast<unsigned char>(value[pos]))) ++pos;
+        if (start == pos) return false;
+        try { parts[i] = std::stoi(value.substr(start, pos - start)); }
+        catch (...) { return false; }
+        if (i != 2 && (pos >= value.size() || value[pos++] != '.')) return false;
+    }
+    return pos == value.size();
+}
+
+int compare_semver_core(const int left[3], const int right[3]) {
+    for (int i = 0; i < 3; ++i) {
+        if (left[i] < right[i]) return -1;
+        if (left[i] > right[i]) return 1;
+    }
+    return 0;
+}
+
+bool version_satisfies(const std::string& actual, const std::string& constraint) {
+    if (constraint == "*" || constraint == actual) return true;
+    int current[3]{}, required[3]{};
+    if (constraint.rfind(">=", 0) == 0) {
+        return parse_semver_core(actual, current) &&
+               parse_semver_core(constraint.substr(2), required) &&
+               compare_semver_core(current, required) >= 0;
+    }
+    if (constraint.rfind("^", 0) == 0) {
+        if (!parse_semver_core(actual, current) ||
+            !parse_semver_core(constraint.substr(1), required)) return false;
+        return current[0] == required[0] &&
+               compare_semver_core(current, required) >= 0;
+    }
+    if (constraint.rfind("=", 0) == 0) return actual == constraint.substr(1);
+    return false;
+}
+
+bool read_installed_mod(const fs::path& directory, const std::string& game_version,
+                        const std::string& platform, InstalledMod& mod,
+                        std::string* error) {
+    std::error_code ec;
+    const auto dir_status = fs::symlink_status(directory, ec);
+    if (ec || !fs::is_directory(dir_status) || fs::is_symlink(dir_status)) {
+        set_error(error, "mod directory is not a normal directory");
+        return false;
+    }
+    const fs::path manifest_path = directory / "manifest.json";
+    const auto manifest_status = fs::symlink_status(manifest_path, ec);
+    if (ec || !fs::is_regular_file(manifest_status) || fs::is_symlink(manifest_status)) {
+        set_error(error, "installed mod has no regular manifest.json");
+        return false;
+    }
+    const auto size = fs::file_size(manifest_path, ec);
+    if (ec || size == 0 || size > kMaxManifestBytes) {
+        set_error(error, "installed manifest size is invalid");
+        return false;
+    }
+    std::ifstream input(manifest_path, std::ios::binary);
+    if (!input) { set_error(error, "cannot read installed manifest"); return false; }
+    std::string raw(static_cast<size_t>(size), '\0');
+    if (!input.read(raw.data(), static_cast<std::streamsize>(raw.size()))) {
+        set_error(error, "failed to read installed manifest");
+        return false;
+    }
+
+    Json root;
+    JsonParser parser(raw);
+    if (!parser.parse(root, error) || root.kind != Json::Kind::Object) return false;
+    std::string format;
+    if (!string_field(root, "format", format, true, error) || format != "FREDL") {
+        set_error(error, "installed manifest format is not FREDL");
+        return false;
+    }
+    const Json* format_version = root.get("formatVersion");
+    if (!format_version || format_version->kind != Json::Kind::Number ||
+        format_version->number != 1.0) {
+        set_error(error, "unsupported installed FREDL formatVersion");
+        return false;
+    }
+    if (!string_field(root, "id", mod.id, true, error) || !valid_id(mod.id) ||
+        mod.id != directory.filename().string()) {
+        set_error(error, "installed mod ID does not match its directory");
+        return false;
+    }
+    if (!string_field(root, "name", mod.name, true, error) ||
+        mod.name.empty() || mod.name.size() > 128 ||
+        !string_field(root, "version", mod.version, true, error) ||
+        !valid_semver(mod.version)) {
+        set_error(error, "installed mod name or version is invalid");
+        return false;
+    }
+
+    const Json* game = root.get("game");
+    std::string game_id;
+    if (!game || game->kind != Json::Kind::Object ||
+        !string_field(*game, "id", game_id, true, error) || game_id != "terraria-mobile") {
+        set_error(error, "installed mod targets an unsupported game");
+        return false;
+    }
+    const Json* versions = game->get("versions");
+    bool version_ok = false;
+    if (versions && versions->kind == Json::Kind::Array) {
+        for (const Json& item : versions->array) {
+            if (item.kind == Json::Kind::String && item.string == game_version) version_ok = true;
+        }
+    }
+    if (!version_ok) { set_error(error, "installed mod does not support this game version"); return false; }
+
+    const Json* platforms = root.get("platforms");
+    bool platform_ok = false;
+    if (platforms && platforms->kind == Json::Kind::Array) {
+        for (const Json& item : platforms->array) {
+            if (item.kind == Json::Kind::String && item.string == platform) platform_ok = true;
+        }
+    }
+    if (!platform_ok) { set_error(error, "installed mod does not support this platform"); return false; }
+
+    if (!string_field(root, "entrypoint", mod.entrypoint, false, error)) return false;
+    if (!mod.entrypoint.empty()) {
+        if (!safe_relative_path(mod.entrypoint, false) ||
+            fs::path(mod.entrypoint).extension() != ".dll") {
+            set_error(error, "installed mod entrypoint path is invalid");
+            return false;
+        }
+        const fs::path entry = directory / fs::path(mod.entrypoint);
+        const auto entry_status = fs::symlink_status(entry, ec);
+        if (ec || !fs::is_regular_file(entry_status) || fs::is_symlink(entry_status)) {
+            set_error(error, "installed mod entrypoint file is missing or unsafe");
+            return false;
+        }
+    }
+
+    const Json* dependencies = root.get("dependencies");
+    if (dependencies) {
+        if (dependencies->kind != Json::Kind::Object || dependencies->object.size() > 128) {
+            set_error(error, "installed dependencies object is invalid");
+            return false;
+        }
+        for (const auto& dependency : dependencies->object) {
+            if (!valid_id(dependency.first) || dependency.second.kind != Json::Kind::String ||
+                dependency.second.string.empty() || dependency.second.string.size() > 64) {
+                set_error(error, "installed dependency metadata is invalid");
+                return false;
+            }
+            mod.dependencies.emplace(dependency.first, dependency.second.string);
+        }
+    }
+
+    mod.directory = directory;
+    const fs::path marker = directory / ".fredl-selected";
+    ec.clear();
+    const auto marker_status = fs::symlink_status(marker, ec);
+    mod.selected = !ec && fs::is_regular_file(marker_status) && !fs::is_symlink(marker_status);
+    return true;
+}
+
+bool collect_installed_mods(const std::string& directory, const std::string& game_version,
+                            const std::string& platform, std::map<std::string, InstalledMod>& mods,
+                            std::string* error) {
+    std::error_code ec;
+    const fs::path root(directory);
+    if (!fs::exists(root, ec)) return true;
+    if (ec || !fs::is_directory(root, ec)) {
+        set_error(error, "mods path is not a directory");
+        return false;
+    }
+    for (fs::directory_iterator it(root, ec), end; !ec && it != end; it.increment(ec)) {
+        std::error_code item_error;
+        if (!it->is_directory(item_error) || item_error) continue;
+        InstalledMod mod;
+        std::string item_error_text;
+        if (!read_installed_mod(it->path(), game_version, platform, mod, &item_error_text)) continue;
+        if (!mods.emplace(mod.id, std::move(mod)).second) {
+            set_error(error, "duplicate installed mod ID");
+            return false;
+        }
+    }
+    if (ec) { set_error(error, "could not enumerate installed mods"); return false; }
+    return true;
+}
+
+bool visit_mod(const std::string& id, std::map<std::string, InstalledMod>& mods,
+               std::map<std::string, int>& marks, std::vector<std::string>& order,
+               std::string* error) {
+    auto found = mods.find(id);
+    if (found == mods.end()) {
+        set_error(error, "required mod is not installed: " + id);
+        return false;
+    }
+    if (!found->second.selected) {
+        set_error(error, "required mod is not selected: " + id);
+        return false;
+    }
+    int& mark = marks[id];
+    if (mark == 1) { set_error(error, "dependency cycle includes mod: " + id); return false; }
+    if (mark == 2) return true;
+    mark = 1;
+    for (const auto& dependency : found->second.dependencies) {
+        auto required = mods.find(dependency.first);
+        if (required == mods.end()) {
+            set_error(error, "missing dependency " + dependency.first + " required by " + id);
+            return false;
+        }
+        if (!version_satisfies(required->second.version, dependency.second)) {
+            set_error(error, "dependency version mismatch: " + dependency.first +
+                             " requires " + dependency.second);
+            return false;
+        }
+        if (!visit_mod(dependency.first, mods, marks, order, error)) return false;
+    }
+    mark = 2;
+    order.push_back(id);
+    return true;
+}
+
+bool build_load_order(std::map<std::string, InstalledMod>& mods,
+                      std::vector<std::string>& order, std::string* error) {
+    std::map<std::string, int> marks;
+    for (const auto& item : mods) {
+        if (item.second.selected && !visit_mod(item.first, mods, marks, order, error)) return false;
+    }
+    return true;
+}
+
+bool write_selection_marker(const InstalledMod& mod, bool selected, std::string* error) {
+    const fs::path marker = mod.directory / ".fredl-selected";
+    const fs::path temporary = mod.directory / ".fredl-selected.tmp";
+    std::error_code ec;
+    if (!selected) {
+        fs::remove(marker, ec);
+        if (ec) { set_error(error, "could not clear mod selection"); return false; }
+        return true;
+    }
+    {
+        std::ofstream output(temporary, std::ios::binary | std::ios::trunc);
+        if (!output || !(output << "FREDL_SELECTED_V1\n")) {
+            set_error(error, "could not write mod selection marker");
+            return false;
+        }
+        output.flush();
+        if (!output) { set_error(error, "could not flush mod selection marker"); return false; }
+    }
+    fs::rename(temporary, marker, ec);
+    if (ec) {
+        fs::remove(temporary, ec);
+        set_error(error, "could not atomically save mod selection");
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 extern "C" FREDL_EXPORT int FreedomLoaderValidateFredlFile(
@@ -933,4 +1198,79 @@ extern "C" FREDL_EXPORT int FreedomLoaderScanFredlDirectory(
     if (report.size() + 1 > report_capacity) return -2;
     std::memcpy(report_json, report.c_str(), report.size() + 1);
     return count;
+}
+
+
+extern "C" FREDL_EXPORT int FreedomLoaderGetInstalledModsReport(
+    const char* mods_directory, const char* game_version, const char* platform,
+    char* report_json, size_t report_capacity) {
+    if (report_json && report_capacity) report_json[0] = '\0';
+    if (!mods_directory || !*mods_directory || !game_version || !*game_version ||
+        !platform || !*platform || !report_json || report_capacity < 3) return -1;
+
+    std::map<std::string, InstalledMod> mods;
+    std::string error;
+    if (!collect_installed_mods(mods_directory, game_version, platform, mods, &error)) return -3;
+    std::vector<std::string> order;
+    std::string order_error;
+    const bool order_ok = build_load_order(mods, order, &order_error);
+
+    std::string report = "{\"mods\":[";
+    bool first = true;
+    for (const auto& item : mods) {
+        if (!first) report += ',';
+        first = false;
+        const InstalledMod& mod = item.second;
+        report += "{\"id\":" + json_escape(mod.id) +
+                  ",\"name\":" + json_escape(mod.name) +
+                  ",\"version\":" + json_escape(mod.version) +
+                  ",\"selected\":" + (mod.selected ? "true" : "false") +
+                  ",\"entrypoint\":" + json_escape(mod.entrypoint) + "}";
+    }
+    report += "],\"loadOrder\":[";
+    for (size_t i = 0; i < order.size(); ++i) {
+        if (i) report += ',';
+        report += json_escape(order[i]);
+    }
+    report += "],\"loadOrderReady\":" + std::string(order_ok ? "true" : "false") +
+              ",\"loadOrderError\":" + json_escape(order_ok ? "" : order_error) + "}";
+    if (report.size() + 1 > report_capacity) return -2;
+    std::memcpy(report_json, report.c_str(), report.size() + 1);
+    return static_cast<int>(mods.size());
+}
+
+extern "C" FREDL_EXPORT int FreedomLoaderSetModSelected(
+    const char* mods_directory, const char* mod_id, int selected,
+    const char* game_version, const char* platform,
+    char* error, size_t error_capacity) {
+    if (error && error_capacity) error[0] = '\0';
+    if (!mods_directory || !*mods_directory || !mod_id || !valid_id(mod_id) ||
+        !game_version || !*game_version || !platform || !*platform) {
+        write_error(error, error_capacity, "invalid selection API arguments");
+        return 0;
+    }
+    std::map<std::string, InstalledMod> mods;
+    std::string message;
+    if (!collect_installed_mods(mods_directory, game_version, platform, mods, &message)) {
+        write_error(error, error_capacity, message);
+        return 0;
+    }
+    auto target = mods.find(mod_id);
+    if (target == mods.end()) {
+        write_error(error, error_capacity, "installed mod was not found or its manifest is invalid");
+        return 0;
+    }
+    if (target->second.selected == (selected != 0)) return 1;
+
+    target->second.selected = selected != 0;
+    std::vector<std::string> order;
+    if (!build_load_order(mods, order, &message)) {
+        write_error(error, error_capacity, message);
+        return 0;
+    }
+    if (!write_selection_marker(target->second, selected != 0, &message)) {
+        write_error(error, error_capacity, message);
+        return 0;
+    }
+    return 1;
 }
