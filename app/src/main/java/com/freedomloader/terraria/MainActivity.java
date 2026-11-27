@@ -83,25 +83,24 @@ public final class MainActivity extends Activity {
             return TARGET_GAME_VERSION.equals(versionName) || versionCode == 301543L;
         }
         String pairIpLabel() {
-            if (pairIpStatus == ElfDependencyInspector.FOUND) return "موجود";
-            if (pairIpStatus == ElfDependencyInspector.NOT_FOUND) return "لم يُكتشف";
+            if (pairIpStatus == ElfDependencyInspector.FOUND) return "اعتماد مباشر موجود";
+            if (pairIpStatus == ElfDependencyInspector.NOT_FOUND) return "لم يظهر اعتماد مباشر";
             return "تعذر الفحص";
         }
         String modRuntimeStatus() {
             String versionStatus = isFredlTarget()
                     ? "الإصدار يطابق الهدف " + TARGET_GAME_VERSION + "."
                     : "الإصدار لا يطابق الهدف الحالي " + TARGET_GAME_VERSION + ".";
+            String base = versionStatus + "\nAPK مقبول للاستيراد والتثبيت والتشغيل العادي؛ فحص PairIP لا يمنع هذه العمليات.";
+            String pairIp;
             if (pairIpStatus == ElfDependencyInspector.FOUND) {
-                return versionStatus + "\nاكتشف الفحص اعتماد libunity.so على libpairipcore.so (PairIP). "
-                        + "هذا البناء مرفوض من مسارات التحميل المعروفة التي تتطلب libunity.so بلا PairIP. "
-                        + "لن يحاول Freedom Loader تجاوز الحماية.";
+                pairIp = "\nالفحص وجد اعتماداً مباشراً في libunity.so على libpairipcore.so (PairIP). هذه معلومة تشخيصية فقط؛ لن نعدل الحماية أو نتجاوزها.";
+            } else if (pairIpStatus == ElfDependencyInspector.UNKNOWN) {
+                pairIp = "\nتعذر حسم اعتماد PairIP من libunity.so؛ عدم حسم الفحص لا يمنع الاستيراد أو التثبيت العادي.";
+            } else {
+                pairIp = "\nلم يظهر اعتماد مباشر على PairIP في libunity.so؛ هذا لا يثبت غياب كل مكونات الحماية.";
             }
-            if (pairIpStatus == ElfDependencyInspector.UNKNOWN) {
-                return versionStatus + "\nتعذر حسم حالة PairIP من ملف libunity.so.";
-            }
-            return versionStatus + "\nلم يُكتشف اعتماد مباشر على PairIP في libunity.so، لكن هذا لا يثبت التوافق. "
-                    + "Freedom Loader لا يحتوي حالياً على محرك ينفّذ المودات داخل Terraria؛ "
-                    + "ملفات FREDL تبقى مخزنة محلياً فقط.";
+            return base + pairIp + "\nتشغيل المودات داخل Terraria غير متاح حالياً؛ ملفات FREDL تُدار محلياً فقط حتى إضافة Runtime مشروع ومتوافق واختباره.";
         }
     }
 
@@ -136,7 +135,7 @@ public final class MainActivity extends Activity {
         title.setPadding(0, dp(4), 0, dp(4));
         root.addView(title);
         root.addView(text("مدير Terraria وحزم المودات بصيغة .fredl", 15, colorMuted, false));
-        TextView version = text("إصدار اللودر 0.3.0  •  هدف فحص الحزم: " + TARGET_GAME_VERSION + " • ARM64", 12, colorMuted, false);
+        TextView version = text("إصدار اللودر 0.3.1  •  هدف فحص الحزم: " + TARGET_GAME_VERSION + " • ARM64", 12, colorMuted, false);
         version.setPadding(0, dp(8), 0, dp(18));
         root.addView(version);
 
@@ -186,7 +185,7 @@ public final class MainActivity extends Activity {
         installedCard.addView(installedView);
         LinearLayout noteCard = card(root, "حدود الإصدار الحالي");
         noteCard.addView(text("حالة تشغيل المودات: غير متاحة في هذا الإصدار. يستطيع اللودر استيراد Terraria APK وفحص اعتماد PairIP فيه، وطلب تثبيت اللعبة الأصلية وتشغيلها، كما يستطيع فحص حزم FREDL واستخراجها إلى مساحة التطبيق. لا يتم تحميل mod.dll داخل اللعبة، ولا يؤثر تثبيت FREDL على اللعب حتى يضاف Runtime متوافق ويُختبر. لا يتم تعديل APK اللعبة أو تجاوز PairIP أو التوقيع أو الترخيص.", 13, colorMuted, false));
-        TextView footer = text("FREDL package manager • v0.3.0", 11, colorMuted, false);
+        TextView footer = text("FREDL package manager • v0.3.1", 11, colorMuted, false);
         footer.setGravity(Gravity.CENTER);
         footer.setPadding(0, dp(18), 0, 0);
         root.addView(footer);
@@ -296,8 +295,7 @@ public final class MainActivity extends Activity {
                             "\nARM64: موجود • global-metadata.dat: " + (info.hasMetadata ? "موجود" : "غير موجود") +
                             "\nPairIP: " + info.pairIpLabel());
                     gameStatusView.setText(info.modRuntimeStatus());
-                    gameStatusView.setTextColor(info.pairIpStatus == ElfDependencyInspector.FOUND
-                            ? Color.rgb(255, 145, 145) : Color.rgb(255, 196, 120));
+                    gameStatusView.setTextColor(Color.rgb(255, 196, 120));
                     updateGameButtons();
                     showStatus("تم استيراد APK وفحصه. لم يتم تثبيته بعد.", false);
                 });
